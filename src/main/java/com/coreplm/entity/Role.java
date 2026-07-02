@@ -1,15 +1,9 @@
 package com.coreplm.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "roles")
-@Getter
-@Setter
-@NoArgsConstructor
 public class Role {
 
     @Id
@@ -22,8 +16,37 @@ public class Role {
     @Column(length = 255)
     private String description;
 
+    public Role() {
+    }
+
     public Role(String name, String description) {
         this.name = name;
+        this.description = description;
+    }
+
+    // Getters and Setters
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
         this.description = description;
     }
 }
