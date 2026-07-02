@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: coreplm
+
+  profiles:
+    active: dev
+
+server:
+  port: 8080
