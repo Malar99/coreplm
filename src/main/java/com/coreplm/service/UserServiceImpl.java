@@ -1,5 +1,7 @@
 package com.coreplm.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.coreplm.dto.UserCreateRequest;
 import com.coreplm.dto.UserResponse;
 import com.coreplm.entity.Role;
@@ -19,6 +21,8 @@ import java.util.stream.Collectors;
 @Service
 public class UserServiceImpl implements UserService {
 
+	 private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class); 
+	 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
@@ -66,11 +70,13 @@ public class UserServiceImpl implements UserService {
         // Save user
         User savedUser = userRepository.save(user);
 
+        log.info("User created: id={}, username={}", savedUser.getId(), savedUser.getUsername());
         // Return response
         return mapToResponse(savedUser);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse getUserById(Long id) {
 
         User user = userRepository.findById(id)
@@ -81,6 +87,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<UserResponse> getAllUsers() {
 
         return userRepository.findAll()
@@ -90,13 +97,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public void deleteUser(Long id) {
-
         User user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("User not found"));
-
-        userRepository.delete(user);
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        user.setActive(false);
+        userRepository.save(user);
+        log.info("User deactivated: id={}, username={}", user.getId(), user.getUsername());
     }
 
     /**
