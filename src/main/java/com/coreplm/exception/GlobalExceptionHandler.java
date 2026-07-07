@@ -5,6 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -18,9 +20,6 @@ public class GlobalExceptionHandler {
     private static final Logger log =
             LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    /**
-     * Handle Resource Not Found Exceptions (404)
-     */
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
             ResourceNotFoundException ex,
@@ -28,16 +27,9 @@ public class GlobalExceptionHandler {
 
         log.warn("Resource not found: {}", ex.getMessage());
 
-        return buildResponse(
-                HttpStatus.NOT_FOUND,
-                ex.getMessage(),
-                request
-        );
+        return buildResponse(HttpStatus.NOT_FOUND, ex.getMessage(), request);
     }
 
-    /**
-     * Handle Duplicate Username/Email and other Illegal Arguments (409)
-     */
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(
             IllegalArgumentException ex,
@@ -45,16 +37,9 @@ public class GlobalExceptionHandler {
 
         log.warn("Validation failed: {}", ex.getMessage());
 
-        return buildResponse(
-                HttpStatus.CONFLICT,
-                ex.getMessage(),
-                request
-        );
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
 
-    /**
-     * Handle Bean Validation Errors (400)
-     */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
             MethodArgumentNotValidException ex,
@@ -63,22 +48,35 @@ public class GlobalExceptionHandler {
         String message = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(error ->
-                        error.getField() + ": " + error.getDefaultMessage())
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .collect(Collectors.joining(", "));
 
         log.warn("Validation Error: {}", message);
 
-        return buildResponse(
-                HttpStatus.BAD_REQUEST,
-                message,
-                request
-        );
+        return buildResponse(HttpStatus.BAD_REQUEST, message, request);
     }
 
-    /**
-     * Handle All Other Exceptions (500)
-     */
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleBadCredentials(
+            BadCredentialsException ex,
+            HttpServletRequest request) {
+
+        log.warn("Authentication failed: {}", ex.getMessage());
+
+        return buildResponse(HttpStatus.UNAUTHORIZED, "Invalid username or password", request);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        log.warn("Access denied: {}", ex.getMessage());
+
+        return buildResponse(HttpStatus.FORBIDDEN,
+                "You do not have permission to perform this action", request);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(
             Exception ex,
@@ -86,16 +84,20 @@ public class GlobalExceptionHandler {
 
         log.error("Unhandled exception", ex);
 
-        return buildResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "An unexpected error occurred",
-                request
-        );
+        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred", request);
+    }
+    @ExceptionHandler(org.springframework.security.authentication.DisabledException.class)
+    public ResponseEntity<ErrorResponse> handleDisabledAccount(
+            org.springframework.security.authentication.DisabledException ex,
+            HttpServletRequest request) {
+
+        log.warn("Login attempt on disabled account: {}", ex.getMessage());
+
+        return buildResponse(HttpStatus.UNAUTHORIZED,
+                "This account has been deactivated", request);
     }
 
-    /**
-     * Common method to build ErrorResponse
-     */
     private ResponseEntity<ErrorResponse> buildResponse(
             HttpStatus status,
             String message,
@@ -109,8 +111,6 @@ public class GlobalExceptionHandler {
                 LocalDateTime.now()
         );
 
-        return ResponseEntity
-                .status(status)
-                .body(response);
+        return ResponseEntity.status(status).body(response);
     }
 }

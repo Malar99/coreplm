@@ -1,11 +1,13 @@
 package com.coreplm.controller;
 
+import com.coreplm.dto.RoleAssignmentRequest;
 import com.coreplm.dto.UserCreateRequest;
 import com.coreplm.dto.UserResponse;
 import com.coreplm.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -53,5 +55,16 @@ public class UserController {
         userService.deleteUser(id);
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{id}/roles")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserResponse> updateUserRoles(
+            @PathVariable Long id,
+            @RequestBody RoleAssignmentRequest request) {
+
+        UserResponse response = userService.updateUserRoles(id, request.roleNames());
+
+        return ResponseEntity.ok(response);
     }
 }

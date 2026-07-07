@@ -1,7 +1,5 @@
 package com.coreplm.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import com.coreplm.dto.UserCreateRequest;
 import com.coreplm.dto.UserResponse;
 import com.coreplm.entity.Role;
@@ -9,6 +7,8 @@ import com.coreplm.entity.User;
 import com.coreplm.exception.ResourceNotFoundException;
 import com.coreplm.repository.RoleRepository;
 import com.coreplm.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +21,10 @@ import java.util.stream.Collectors;
 @Service
 public class UserServiceImpl implements UserService {
 
-	 private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class); 
-	 
+    private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
+
+    private static final String DEFAULT_REGISTRATION_ROLE = "VIEWER";
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
@@ -40,38 +42,34 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public UserResponse createUser(UserCreateRequest request) {
 
-        // Check if username already exists
         if (userRepository.existsByUsername(request.username())) {
             throw new IllegalArgumentException(
                     "Username already exists: " + request.username());
         }
 
-        // Check if email already exists
         if (userRepository.existsByEmail(request.email())) {
             throw new IllegalArgumentException(
                     "Email already exists: " + request.email());
         }
 
-        // Create User entity
         User user = new User();
         user.setUsername(request.username());
         user.setEmail(request.email());
         user.setFullName(request.fullName());
-
-        // Encode password
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-
-        // Set default active status
         user.setActive(true);
 
-        // Assign roles
-        user.setRoles(resolveRoles(request.roleNames()));
+        // Security fix: public registration always gets the default
+        // minimal role. Clients cannot self-assign roles at signup.
+        Role defaultRole = roleRepository.findByName(DEFAULT_REGISTRATION_ROLE)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Default role not seeded: " + DEFAULT_REGISTRATION_ROLE));
+        user.setRoles(Set.of(defaultRole));
 
-        // Save user
         User savedUser = userRepository.save(user);
 
         log.info("User created: id={}, username={}", savedUser.getId(), savedUser.getUsername());
-        // Return response
+
         return mapToResponse(savedUser);
     }
 
@@ -99,11 +97,33 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public void deleteUser(Long id) {
+
         User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+
         user.setActive(false);
         userRepository.save(user);
+
         log.info("User deactivated: id={}, username={}", user.getId(), user.getUsername());
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateUserRoles(Long id, Set<String> roleNames) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("User not found"));
+
+        user.setRoles(resolveRoles(roleNames));
+
+        User savedUser = userRepository.save(user);
+
+        log.info("Roles updated for user: id={}, username={}, newRoles={}",
+                savedUser.getId(), savedUser.getUsername(), roleNames);
+
+        return mapToResponse(savedUser);
     }
 
     /**
