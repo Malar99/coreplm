@@ -18,3 +18,7 @@ logging:
   level:
     com.coreplm: DEBUG
     org.hibernate.SQL: DEBUG
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-to-a-long-random-secret-in-real-deployment-min-256-bits}
+    expiration-ms: 3600000
