@@ -97,6 +97,15 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNAUTHORIZED,
                 "This account has been deactivated", request);
     }
+    @ExceptionHandler(InvalidStatusTransitionException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidTransition(
+            InvalidStatusTransitionException ex,
+            HttpServletRequest request) {
+
+        log.warn("Invalid status transition attempted: {}", ex.getMessage());
+
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
 
     private ResponseEntity<ErrorResponse> buildResponse(
             HttpStatus status,
