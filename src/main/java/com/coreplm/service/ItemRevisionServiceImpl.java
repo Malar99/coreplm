@@ -3,12 +3,15 @@ package com.coreplm.service;
 import com.coreplm.dto.RevisionCreateRequest;
 import com.coreplm.dto.RevisionResponse;
 import com.coreplm.dto.RevisionStatusUpdateRequest;
+import com.coreplm.entity.ChangeOrder;
+import com.coreplm.entity.ChangeOrderStatus;
 import com.coreplm.entity.Item;
 import com.coreplm.entity.ItemRevision;
 import com.coreplm.entity.RevisionStatus;
 import com.coreplm.entity.User;
 import com.coreplm.exception.InvalidStatusTransitionException;
 import com.coreplm.exception.ResourceNotFoundException;
+import com.coreplm.repository.ChangeOrderRepository;
 import com.coreplm.repository.ItemRepository;
 import com.coreplm.repository.ItemRevisionRepository;
 import com.coreplm.repository.UserRepository;
@@ -29,7 +32,6 @@ public class ItemRevisionServiceImpl implements ItemRevisionService {
 
     private static final Logger log = LoggerFactory.getLogger(ItemRevisionServiceImpl.class);
 
-    // Defines which statuses each status is allowed to transition INTO.
     private static final Map<RevisionStatus, Set<RevisionStatus>> ALLOWED_TRANSITIONS = new EnumMap<>(RevisionStatus.class);
     static {
         ALLOWED_TRANSITIONS.put(RevisionStatus.IN_WORK, EnumSet.of(RevisionStatus.IN_REVIEW));
@@ -41,13 +43,16 @@ public class ItemRevisionServiceImpl implements ItemRevisionService {
     private final ItemRevisionRepository revisionRepository;
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
+    private final ChangeOrderRepository changeOrderRepository;
 
     public ItemRevisionServiceImpl(ItemRevisionRepository revisionRepository,
                                     ItemRepository itemRepository,
-                                    UserRepository userRepository) {
+                                    UserRepository userRepository,
+                                    ChangeOrderRepository changeOrderRepository) {
         this.revisionRepository = revisionRepository;
         this.itemRepository = itemRepository;
         this.userRepository = userRepository;
+        this.changeOrderRepository = changeOrderRepository;
     }
 
     @Override
@@ -118,14 +123,26 @@ public class ItemRevisionServiceImpl implements ItemRevisionService {
 
         validateTransition(currentStatus, requestedStatus);
 
-        revision.setStatus(requestedStatus);
+        User actor = userRepository.findByUsername(requestingUsername)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
 
         if (requestedStatus == RevisionStatus.RELEASED) {
-            User releaser = userRepository.findByUsername(requestingUsername)
-                    .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found"));
-            revision.setReleasedBy(releaser);
+            ChangeOrder eco = changeOrderRepository.findByRevisionIdAndStatus(revisionId, ChangeOrderStatus.OPEN)
+                    .orElseThrow(() -> new InvalidStatusTransitionException(
+                            "Cannot release revision without an approved, open Change Order authorizing it"));
+
+            eco.setStatus(ChangeOrderStatus.CLOSED);
+            eco.setClosedAt(LocalDateTime.now());
+            eco.setClosedBy(actor);
+            changeOrderRepository.save(eco);
+
+            log.info("ECO closed via revision release: eco={}, revisionId={}", eco.getEcoNumber(), revisionId);
+
+            revision.setReleasedBy(actor);
             revision.setReleasedAt(LocalDateTime.now());
         }
+
+        revision.setStatus(requestedStatus);
 
         ItemRevision saved = revisionRepository.save(revision);
 
