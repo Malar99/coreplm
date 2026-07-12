@@ -97,6 +97,15 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNAUTHORIZED,
                 "This account has been deactivated", request);
     }
+    @ExceptionHandler(UnauthorizedActionException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorizedAction(
+            UnauthorizedActionException ex,
+            HttpServletRequest request) {
+
+        log.warn("Unauthorized action attempted: {}", ex.getMessage());
+
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage(), request);
+    }
     @ExceptionHandler(InvalidStatusTransitionException.class)
     public ResponseEntity<ErrorResponse> handleInvalidTransition(
             InvalidStatusTransitionException ex,
