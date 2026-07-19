@@ -115,6 +115,15 @@ public class GlobalExceptionHandler {
 
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
     }
+    @ExceptionHandler(CircularReferenceException.class)
+    public ResponseEntity<ErrorResponse> handleCircularReference(
+            CircularReferenceException ex,
+            HttpServletRequest request) {
+
+        log.warn("Circular reference rejected: {}", ex.getMessage());
+
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), request);
+    }
 
     private ResponseEntity<ErrorResponse> buildResponse(
             HttpStatus status,
