@@ -14,7 +14,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
   backend:
     build:
       context: .
@@ -30,6 +29,13 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     ports:
       - "8080:8080"
-
+  frontend:
+    build:
+      context: ../coreplm-frontend
+    container_name: coreplm-frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
 volumes:
   coreplm-mysql-data:
